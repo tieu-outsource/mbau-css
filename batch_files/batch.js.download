@@ -1,0 +1,794 @@
+accounts.unshift({
+    'email': '',
+});
+var controlList = new Vue({
+        el: '#control-list',
+        data: {
+            models: models,
+            currentModel: models.length == 0 ? null : models[0],
+            accounts: accounts,
+            clients: clients,
+            colors: [],
+            csvData: [],
+            isActive: false,
+            isNotActive: true,
+            activeIndex: null,
+            bg: "#000",
+            artworkLink: '',
+            merchProducts: {},
+            markets: [
+                "US",
+                "GB",
+                "DE",
+                "FR",
+                "IT",
+                "ES",
+                "JP"
+            ],
+            productTypes:
+                [
+                    'Standard T-Shirt',
+                    'Long Sleeve T-Shirt',
+                    'Sweatshirt',
+                    'Pullover Hoodie',
+                    'PopSockets',
+                ]
+
+        },
+        methods: {
+
+            getDefaultModel: function () {
+                return {
+                    account: {
+                        client: {},
+                        email: '',
+                    },
+                    client: {
+                        ip: '',
+                    },
+                    content: {
+                        products: this.getDefaultProducts(),
+                        markets: this.getDefaultMarkets(),
+                        assets: {},
+                        availability: 'on',
+                    },
+                    progress: 'NEW',
+                };
+            },
+
+            getDefaultMarkets: function () {
+                let markets = {};
+                _.each(this.markets, function (market) {
+                    markets[market] = {
+                        enabled: false,
+                        brand: '',
+                        title: '',
+                        key1: '',
+                        key2: '',
+                        description: '{key1}{key2}',
+                    };
+                });
+
+                return markets;
+            },
+
+            copyUS: function () {
+                var that = this;
+                _.each(this.markets, function (market) {
+                    that.currentModel.content.markets[market] = _.cloneDeep(that.currentModel.content.markets['US']);
+                });
+
+            },
+
+            getDefaultProducts: function () {
+                let products = {};
+                let that = this;
+                _.each(this.merchProducts.productTypeConfiguration, function (val, key) {
+                    let allFit = that.merchProducts.productTypeConfiguration[key].dimensions.FIT.values;
+                    let allColor = that.merchProducts.productTypeConfiguration[key].dimensions.COLOR.values;
+                    products[key] = {
+                        enabled: false,
+                        colors: allColor.length == 1 ? allColor : [],
+                        price: '',
+                        fit: allFit.length == 1 ? allFit : [],
+                        assets: that.getDefaultAssets(key),
+                    };
+                });
+                return products;
+            },
+
+            getDefaultAssets: function (productName) {
+                let assets = {};
+                let product = this.merchProducts.productTypeConfiguration[productName];
+                _.each(product.assets, function (value, key) {
+                    if (!key.includes(productName + "_"))
+                        assets[key] = value.assetType;
+                });
+
+                return assets;
+            },
+
+            getEnabledMarket: function (model) {
+                if (model == null)
+                    model = this.currentModel;
+                let res = [];
+                _.each(model.content.markets, function (market, marketName) {
+                    if (market.enabled)
+                        res.push(marketName);
+                });
+
+                return res;
+            },
+
+            getPricePlaceholder: function () {
+                return this.getEnabledMarket().join('|');
+            },
+
+            addNew: function () {
+                this.models.push(this.getDefaultModel());
+
+                this.checkDefault();
+
+            },
+            remove: function (model) {
+                var index = models.indexOf(model);
+                if (index > -1) {
+                    models.splice(index, 1);
+                }
+
+                this.checkDefault();
+            },
+
+            choose: function (model) {
+                this.currentModel = model;
+                this.isActive = !this.isActive;
+                this.isNotActive = !this.isNotActive;
+            },
+
+
+            checkDefault: function () {
+                if (models.length == 1) {
+                    this.currentModel = models[0];
+                } else if (models.length > 1)
+                    this.currentModel = models[models.length - 1];
+            },
+
+            findClientIp4Account: function (email) {
+                var that = this;
+                var ip = null;
+                this.accounts.forEach(function (account) {
+                    if ('client' in account)
+                        if (account.client)
+                            if ('ip' in account.client)
+                                if (account.email == email) {
+                                    ip = account.client.ip;
+                                }
+                });
+
+                return ip;
+            },
+
+            changeAccount: function () {
+                this.currentModel.client.ip = this.findClientIp4Account(this.currentModel.account.email);
+            },
+
+            isCheckedColor: function (productName, color) {
+                let colors = this.currentModel.content.products[productName].colors;
+                if (colors.indexOf(color) == -1)
+                    return false;
+                return true;
+            },
+
+            getColorBg: function (color) {
+                return this.merchProducts.colors[color];
+            },
+
+            toogleColor: function (productName, color) {
+                let colors = this.currentModel.content.products[productName].colors;
+                var index = colors.indexOf(color);
+                if (index == -1) {
+                    if (colors.length == this.getMaxColor(productName))
+                        return;
+                    colors.push(color);
+                } else {
+                    colors.splice(index, 1);
+                }
+
+
+            },
+
+            changeAsset: function (event) {
+                let link = event.target.value;
+                if (link.includes("drive.google.com"))
+                    link = this.getDirectLink(link);
+                this.artworkLink = link;
+            },
+
+            getMaxColor: function (productName) {
+                return parseInt(this
+                    .merchProducts
+                    .productTypeConfiguration[productName]
+                    .dimensions.COLOR.validators.maxSelect);
+            },
+
+            markColor4SimpleProduct: function (productName) {
+                if (this.currentModel.content.products[productName].enabled)
+                    return;
+
+                if (this.getMaxColor(productName) !== 1)
+                    return;
+
+                this.currentModel.content.products[productName].colors
+                    = [this.merchProducts.productTypeConfiguration[productName].dimensions.COLOR.values[0]];
+
+                this.$forceUpdate();
+            },
+
+            getBg: function () {
+                return "background: " + this.bg;
+            },
+
+            mouseOverColor: function (productName, color) {
+                if (productName == 'RAGLAN')
+                    return;
+                this.bg = this.getColorBg(color);
+            },
+
+            getDirectLink: function (link) {
+                var regex = /https:\/\/drive\.google\.com\/file\/d\/(.*?)\/.*?/gm;
+                var m = regex.exec(link);
+                if (m != null && (m.length >= 2)) {
+                    link = "https://drive.google.com/uc?export=view&id=" + m[1];
+                } else {
+                    regex = /google.*id=([^&]+)/gm;
+                    m = regex.exec(link);
+                    if (m != null && (m.length >= 2)) {
+                        link = "https://drive.google.com/uc?export=view&id=" + m[1];
+                    }
+                }
+
+                return link;
+            },
+
+
+            readCsv: function (event) {
+                var that = this;
+                var file = event.target.files[0];
+
+                that.csvData = [];
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    var data = e.target.result;
+                    var workbook = XLSX.read(data, {type: 'binary'});
+
+                    var result = {};
+                    workbook.SheetNames.forEach(function (sheetName) {
+                        var roa = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                        if (roa.length)
+                            that.csvData = roa;
+                    });
+                };
+                reader.readAsBinaryString(file);
+            },
+
+            trim: function (s) {
+                return s ? s.trim() : '';
+            },
+
+            importMarkets: function (csvItem) {
+                let markets = {};
+                _.each(this.markets, function (market) {
+                    markets[market] = {
+                        enabled: csvItem.hasOwnProperty(market + "_enabled") ? csvItem[market + "_enabled"] == "TRUE" : false,
+                        brand: csvItem.hasOwnProperty(market + "_brand") ? csvItem[market + "_brand"] : '',
+                        title: csvItem.hasOwnProperty(market + "_title") ? csvItem[market + "_title"] : '',
+                        key1: csvItem.hasOwnProperty(market + "_key1") ? csvItem[market + "_key1"] : '',
+                        key2: csvItem.hasOwnProperty(market + "_key2") ? csvItem[market + "_key2"] : '',
+                        description: csvItem.hasOwnProperty(market + "_description") ? csvItem[market + "_description"] : '{key1}{key2}',
+                    };
+                });
+
+                return markets;
+            },
+
+            importAssets: function (csvItem) {
+                let assets = {};
+                _.each(csvItem, function (value, key) {
+                    if (key.includes("_ART_IMAGE"))
+                        assets[key] = value;
+                });
+
+                return assets;
+            },
+
+            importProducts: function (csvItem) {
+                let products = {};
+                let that = this;
+                _.each(this.merchProducts.productTypeConfiguration, function (val, key) {
+
+                    let allFit = that.merchProducts.productTypeConfiguration[key].dimensions.FIT.values;
+                    let allColor = that.merchProducts.productTypeConfiguration[key].dimensions.COLOR.values;
+
+                    let colors = allColor.length == 1 ? allColor : [];
+                    if (csvItem.hasOwnProperty(key + "_color")) {
+                        colors = csvItem[key + "_color"].split(",");
+                        colors = that.getValidColor(key, colors);
+                    }
+
+                    let fit = allFit.length == 1 ? allFit : [];
+                    if (csvItem.hasOwnProperty(key + "_fit")) {
+                        fit = csvItem[key + "_fit"].split(",");
+                        fit = that.getValidFit(key, fit);
+                    }
+
+                    products[key] = {
+                        enabled: csvItem.hasOwnProperty(key + "_enabled") ? csvItem[key + "_enabled"] == "TRUE" : false,
+                        colors: colors,
+                        price: csvItem.hasOwnProperty(key + "_price") ? csvItem[key + "_price"] : '',
+                        fit: fit,
+                        assets: that.getDefaultAssets(key),
+                    };
+                });
+                return products;
+            },
+
+            importCsv: function () {
+                var that = this;
+
+                this.csvData.forEach(function (csvItem) {
+                    var item = {
+                        account: {
+                            client: {},
+                            email: csvItem.Email ? csvItem.Email.trim() : '',
+                        },
+                        client: {
+                            ip: csvItem.Client ? csvItem.Client.trim() : '',
+                        },
+                        content: {
+                            availability: csvItem.hasOwnProperty("Availability") ? that.trim(csvItem.Availability) : 'on',
+                            products: that.importProducts(csvItem),
+                            markets: that.importMarkets(csvItem),
+                            assets: that.importAssets(csvItem),
+                        },
+                        progress: 'NEW',
+                    };
+
+                    if (!item.client.ip) {
+                        item.client.ip = that.findClientIp4Account(item.account.email);
+                    }
+                    that.models.push(item);
+                });
+
+                this.currentModel = this.models.length == 0 ? null : models[0]
+
+                $('body').on('hidden.bs.modal', '.modal', function () {
+                    // $(this).removeData('bs.modal');
+//                        clear();
+                });
+
+            },
+
+
+            getValidColor: function (productName, colors) {
+                var validColors = [];
+                this.merchProducts.productTypeConfiguration[productName].dimensions.COLOR.values.forEach(function (color) {
+                    if (colors.indexOf(color.toLowerCase()) !== -1)
+                        validColors.push(color);
+                });
+
+                return validColors;
+            },
+
+            getValidFit: function (productName, fitTypes) {
+                var validFitTypes = [];
+                this.merchProducts.productTypeConfiguration[productName].dimensions.FIT.values.forEach(function (type) {
+                    if (fitTypes.indexOf(type.toLowerCase()) !== -1)
+                        validFitTypes.push(type);
+                });
+
+                return validFitTypes;
+            },
+
+            queueTask: function () {
+                this.saveTask2Server(true);
+            },
+
+            uploadAll: function () {
+                this.saveTask2Server(false);
+            },
+
+            saveTask2Server: function (isSaveQueue) {
+                var valid = this.models.length > 0;
+                var that = this;
+                this.models.forEach(function (model) {
+                    if (!that.validate(model, !isSaveQueue))
+                        valid = false;
+                });
+
+                if (!valid)
+                    return;
+
+                $.ajax({
+                    type: "POST",
+                    url: '/teetask/batch/ajax',
+                    beforeSend: function () {
+                        notifySuccess('Pushing data !');
+                    },
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        items: that.models,
+                        "_token": csrfToken,
+                        isSaveQueue: isSaveQueue,
+                    }),
+
+                    success: function (data) {
+                        if (!isSaveQueue) {
+                            notifySuccess('Started Upload !');
+                            window.location.href = '/teetask/batch/group/' + data.group;
+                        } else notifySuccess('Queue Saved !');
+                    },
+
+                    error: function (data) {
+                        notifyError('Error Occurred !');
+                    }
+                });
+            },
+
+            validateModels: function () {
+                var that = this;
+                var isValidated = true;
+                this.models.forEach(function (model) {
+                    if (!that.validate(model, false))
+                        isValidated = false;
+                });
+
+                if (isValidated)
+                    notifySuccess("Validated !");
+            },
+
+            validatePrice4Product: function (model, product, productName, message) {
+                var that = this;
+                let price = product.price ? product.price.trim() : '0';
+                price = price.trim('|') + '|0|0|0|0|0|0';
+                let prices = price.split("|");
+                let priceValidate = _.every(this.getEnabledMarket(model), function (marketName, index) {
+                    let maxPrices = that.merchProducts.productTypeConfiguration[productName].maxPrice;
+                    if (maxPrices.hasOwnProperty(marketName)) {
+                        let maxPrice = maxPrices[marketName];
+                        let priceProduct = parseFloat(prices[index]);
+                        if (priceProduct == 0) {
+                            notifyError(message + "Please fill price for " + productName + " at " + marketName);
+                            return false;
+                        }
+                        if (priceProduct < 10) {
+                            notifyError(message + "Please correct price for " + productName + " at " + marketName + " value " + priceProduct);
+                            return false;
+                        }
+
+                        if ((marketName == "JP") && (priceProduct < 1100)) {
+                            notifyError(message + "Please correct price for " + productName + " at " + marketName + " value " + priceProduct);
+                            return false;
+                        }
+                        if (priceProduct > maxPrice) {
+                            notifyError(message + "Please correct price for " + productName + " at " + marketName + "max " + maxPrice);
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+                return priceValidate;
+            },
+
+            validate: function (model, isCheckAcc, isSaveQueue) {
+                var that = this;
+                var index = this.models.indexOf(model) + 1;
+                var message = "[Upload No. " + index + "] ";
+
+
+                function validateProducts() {
+                    let isChoose = false;
+                    let error = "Please choose at least 1 product !"
+
+                    let res = _.every(model.content.products, function (product, productName) {
+                        if (!product.enabled)
+                            return true;
+
+                        isChoose = true;
+                        if (product.colors.length > that.getMaxColor(productName)) {
+                            notifyError(message + "Exceeded color for " + productName);
+                            return false;
+                        }
+                        if (product.colors.length == 0) {
+                            notifyError(message + "Please choose color for " + productName);
+                            return false;
+                        }
+
+                        if (that.merchProducts.productTypeConfiguration[productName].dimensions.FIT.values[0] != 'none') {
+                            if (product.fit.length == 0) {
+                                notifyError(message + "Please choose fit type for " + productName);
+                                return false;
+                            }
+                        }
+
+                        if (!that.validatePrice4Product(model, product, productName, message))
+                            return false;
+
+                        let hasDesign = _.some(product.assets, function (asset) {
+                            return (model.content.assets[asset] && model.content.assets[asset].trim());
+                        });
+
+                        if (!hasDesign) {
+                            notifyError(message + "Please choose design for " + productName);
+                            return false;
+                        }
+
+                        return true;
+                    });
+
+                    if (res == false)
+                        return false;
+
+                    if (!isChoose) {
+                        notifyError(message + error);
+                        return false;
+                    }
+
+                    return true;
+                };
+
+                function validateMarkets() {
+                    let isChoose = false;
+                    let error = "Please choose at least 1 market !"
+                    let res = _.every(model.content.markets, function (market, marketName) {
+                        if (!market.enabled)
+                            return true;
+
+                        isChoose = true;
+                        let tests = [
+                            {
+                                key: "brand",
+                                required: true,
+                                min: 3,
+                                max: 50,
+                            },
+                            {
+                                key: "title",
+                                required: true,
+                                min: 3,
+                                max: 60,
+                            },
+                            {
+                                key: "key1",
+                                required: false,
+                                min: 0,
+                                max: 256,
+                            },
+                            {
+                                key: "key2",
+                                required: false,
+                                min: 0,
+                                max: 256,
+                            },
+                            {
+                                key: "description",
+                                required: false,
+                                min: 75,
+                                max: 2000,
+                            },
+                        ];
+                        return _.every(tests, function (test) {
+                            let key = test.key;
+                            let value = market[key].replace("{key1}", market.key1).replace("{key2}", market.key2);
+                            if (!test.required) {
+                                if (value == null)
+                                    return true;
+
+                                if (value.trim() == '')
+                                    return true;
+                            }
+                            if (test.required) {
+                                if (!validateEmpty(value, message + "Please fill " + key))
+                                    return false;
+                            }
+
+                            if (value.length > test.max) {
+                                notifyError(message + "Maximum " + key + " is " + (test.max - 1));
+                                return false;
+                            }
+
+                            if (value.length < test.min) {
+                                notifyError(message + "Minimum " + key + " is " + test.min);
+                                return false;
+                            }
+
+                            return true;
+                        });
+                    });
+
+                    if (res == false)
+                        return false;
+
+                    if (!isChoose) {
+                        notifyError(message + error);
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                if (isCheckAcc)
+                    if (!validateEmpty(model.account.email, message + "Please choose an account"))
+                        return false;
+                if (isCheckAcc)
+                    if (!validateEmpty(model.client.ip, message + "Please choose a client (vps) "))
+                        return false;
+
+                if (!validateMarkets())
+                    return false;
+
+                if (!validateProducts())
+                    return false;
+
+                if (!validateBoolean(that.merchProducts.availability.hasOwnProperty(model.content.availability) == true, message + "The input Availability value is incorrect !"))
+                    return false;
+
+                if (isSaveQueue)
+                    if (model.content.availability !== 'on') {
+                        notifyError(message + "Please select Sell-Public on Amazon to save queue task !");
+                        return false;
+                    }
+
+                return true;
+            },
+
+            addMany: function () {
+                var n = parseInt(prompt("How many designs do you want to upload ?"));
+                if (!n)
+                    return;
+
+                for (var i = 0; i < n; i++) {
+                    this.models.push(this.getDefaultModel());
+                }
+            },
+
+            duplicateMany: function () {
+                var n = parseInt(prompt("How many designs do you want to duplicate ?"));
+                if (!n)
+                    return;
+
+                for (var i = 0; i < n; i++) {
+                    let model = _.clone(this.currentModel);
+                    model.progress = 'NEW';
+                    this.models.push(model);
+                }
+            },
+
+            addFolder: function () {
+                var that = this;
+                var folderId = prompt("Please input google drive or driveID here :");
+                if (!folderId)
+                    return;
+
+                $.ajax({
+                    type: "GET",
+                    url: '/teetask/drive/ajax',
+                    beforeSend: function () {
+                        notifySuccess("Scanning Folder !");
+                    },
+                    data: {
+                        folderId: folderId,
+                        "_token": "{{ csrf_token() }}",
+                    },
+
+                    success: function (data) {
+                        notifySuccess('Scanning Done !');
+                        data.forEach(function (item) {
+                            var model = that.getDefaultModel();
+                            model.content.driveLink = item;
+                            that.models.push(model);
+                        });
+                    },
+
+                    error: function (data) {
+                        notifyError('Error Occurred !');
+                    }
+                });
+            },
+
+            clearAll: function () {
+                models = this.models = [];
+            },
+
+            getMarketRow: function (model) {
+                let res = {};
+                _.each(model.content.markets, function (market, marketName) {
+                    if (!market.enabled)
+                        return;
+
+                    _.each(market, function (value, key) {
+                        if (value && ((value === true) || value.trim()))
+                            res[marketName + "_" + key] = value;
+                    });
+                });
+
+                return res;
+            },
+
+            getProductRow: function (model) {
+                let res = {};
+                _.each(model.content.products, function (product, productName) {
+                    if (!product.enabled)
+                        return;
+
+                    res[productName + "_enabled"] = product.enabled;
+                    res[productName + "_price"] = product.price;
+                    res[productName + "_fit"] = product.fit.join(",");
+                    res[productName + "_color"] = product.colors.join(",");
+                });
+
+                return res;
+            },
+
+            getAssetRow: function (model) {
+                let res = {};
+                _.each(model.content.assets, function (asset, assetName) {
+                    if (asset && asset.trim())
+                        res[assetName] = asset;
+                });
+                return res;
+            },
+
+            genJsonData: function () {
+                var that = this;
+                var jsonData = [];
+                models.forEach(function (model) {
+                    let aRow = {
+                        Email: model.account.email,
+                        Client: model.client.ip,
+                        Availability: model.content.availability,
+                    };
+
+                    let markets = that.getMarketRow(model);
+                    let products = that.getProductRow(model);
+                    let assets = that.getAssetRow(model);
+                    aRow = _.merge(aRow, assets, products, markets);
+                    jsonData.push(aRow);
+                });
+
+                return jsonData;
+            },
+
+            s2ab: function (s) {
+                var buf = new ArrayBuffer(s.length);
+                var view = new Uint8Array(buf);
+                for (var i = 0; i != s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+                return buf;
+            },
+
+            exportCSV: function () {
+                var jsonData = this.genJsonData();
+                var ws = XLSX.utils.json_to_sheet(jsonData);
+
+                /* add to workbook */
+                var wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "People");
+
+                /* write workbook (use type 'binary') */
+                var wbout = XLSX.write(wb, {bookType: 'xlsx', type: 'binary'});
+
+                var currentDate = new Date();
+                var name = currentDate.getDate() + "-"
+                    + (currentDate.getMonth() + 1) + " "
+                    + currentDate.getFullYear() + " @ Merch.xlsx";
+                saveAs(new Blob([this.s2ab(wbout)], {type: "application/octet-stream"}), name);
+            },
+        },
+
+        created: function () {
+            var self = this // create a closure to access component in the callback below
+            $.getJSON('/data/merch_products.json', function (data) {
+                self.merchProducts = data;
+            });
+        },
+    })
+;

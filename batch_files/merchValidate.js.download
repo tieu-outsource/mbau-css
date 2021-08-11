@@ -1,0 +1,72 @@
+function validateEmpty(value, errorMessage) {
+    if (value && value.trim())
+        return true;
+    notifyError(errorMessage);
+    return false;
+}
+
+function validateBoolean(value, errorMessage) {
+    if (value)
+        return true;
+    notifyError(errorMessage);
+    return false;
+}
+
+function checkExistBlank(value) {
+    var checkBlank = /({blank})/g;
+    if (checkBlank.exec(value)) {
+        return true;
+    }
+    return false;
+}
+
+function validateSpecialCharacters(value, errorMessage) {
+    value = value.toLowerCase();
+    var arrAvaliable = /({name}|{key1}|{key2}|{old}|{century})/g;
+    var name = value.replace(arrAvaliable, '');
+    var pattern = /[ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂưăạảấầẩẫậắằẳẵặẹẻẽềềểỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ{}]/;
+    var market = model.content.market;
+    if (market != 'Amazon.de') {
+        if (pattern.exec(name)) {
+            notifyError(errorMessage);
+            return false;
+        }
+    }
+    return true;
+}
+
+function validateDescription(value) {
+    value = value.toLowerCase();
+    var key1 = model.content.key1;
+    var key2 = model.content.key2;
+    var checkKey1 = /({key1})/g;
+    var checkKey2 = /({key2})/g;
+    var description = value.replace(checkKey1, key1);
+    description = description.replace(checkKey2, key2);
+
+    if (!checkExistBlank(description)) {
+        if (!validateSpecialCharacters(description, message + "description Do not contain special characters")) {
+            return false;
+        }
+        if (!validateBoolean(description.length > 70, message + "Minximum description is 70 characters")) {
+            return false;
+        }
+        if (!validateBoolean(description.length < 2001, message + "Maximum description is 2000 characters")) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function validateInputData(name, value, message, maxlength) {
+    if (!validateEmpty(value, message + "Please type " + name)) {
+        return false;
+    }
+    if (!checkExistBlank(value)) {
+        if (!validateBoolean(value.length < maxlength, message + "Maximum " + name + " is " + (maxlength - 1) + " characters"))
+            return false;
+        if (!validateSpecialCharacters(value, message + name + " Do not contain special characters"))
+            return false;
+    }
+    return true;
+}
