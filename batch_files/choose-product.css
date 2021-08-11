@@ -1,0 +1,78 @@
+.choose-product .tab-pane>div:not(.color-select){
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    text-transform: uppercase;
+}
+
+.choose-product .tab-pane>div:not(.color-select)>input[type="text"] {
+    width: 70%;
+    border: 0;
+    background-image: linear-gradient(#9c27b0, #9c27b0), linear-gradient(#D2D2D2, #D2D2D2);
+    background-size: 0 2px, 100% 1px;
+    background-repeat: no-repeat;
+    background-position: center bottom, center calc(100% - 1px);
+    background-color: transparent;
+    transition: background 0s ease-out;
+    float: none;
+    box-shadow: none;
+    border-radius: 0;
+    font-weight: 400;
+}
+
+.choose-product .tab-pane>div:not(.color-select)>div {
+    width: 70%;
+    display: flex;
+    position: relative;
+}
+
+.choose-product .tab-pane>div:not(.color-select)>div label{
+    margin-right: 10px;
+}
+
+.choose-product .tab-pane>div:not(.color-select)>div>input[type="text"] {
+    border: 0;
+    left: 0;
+    position: absolute;
+    background-image: linear-gradient(#9c27b0, #9c27b0), linear-gradient(#D2D2D2, #D2D2D2);
+    background-size: 0 2px, 100% 1px;
+    background-repeat: no-repeat;
+    background-position: center bottom, center calc(100% - 1px);
+    background-color: transparent;
+    transition: background 0s ease-out;
+    float: none;
+    box-shadow: none;
+    border-radius: 0;
+    font-weight: 400;
+    width: 90%;
+}
+
+.choose-product .tab-pane>div:not(.color-select)>div>i {
+    position: absolute;
+    right: 0;
+    color: #e91e63;
+    cursor: pointer;
+}
+
+.choose-product .tab-pane>div:not(.color-select)>div>i:hover {
+    color: #36023f
+}
+
+.choose-product .tab-pane>div:not(.color-select)>input[type="text"]:focus,
+.choose-product .tab-pane>div:not(.color-select)>div>input:focus {
+    background-image: linear-gradient(#9c27b0, #9c27b0), linear-gradient(#9c279c, #9c27b0);
+}
+
+.choose-product .tab-pane {
+    padding-left: 50px;
+    padding-right: 50px;
+}
+
+.color-select.raglan button{
+    background-repeat: no-repeat !important;
+    background-size: 75px !important;
+    background-position-y: -12px !important;
+    background-position-x: -9px !important;
+    margin-right: 5px !important;
+    border: 1px solid #D2D2D2;
+}
